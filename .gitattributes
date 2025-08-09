@@ -1,0 +1,2 @@
+# Marking Stata files as they are being picked up wrongly, which change the most language used in the repo
+*.do linguist-generated
