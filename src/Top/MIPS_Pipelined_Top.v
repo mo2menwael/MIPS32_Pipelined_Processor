@@ -17,7 +17,7 @@ localparam [1:0] ALU_OUT = 2'b00, MEM_OUT = 2'b01, HI = 2'b10, LO = 2'b11;
 
 localparam [1:0] NO_MULT_DIV = 2'b00, MULT = 2'b01, DIV = 2'b10;
 
-wire [31:0] PC;
+wire [31:0] PC_f, PC_d;
 wire [31:0] PC_next;
 wire [31:0] PC_Jump;
 wire [31:0] PC_Plus_4_f, PC_Plus_4_d, PC_Plus_4_e, PC_Plus_4_m, PC_Plus_4_wb;
@@ -55,7 +55,7 @@ wire Overflow;
 wire [1:0] Sign_Extend;
 
 wire stall_f, stall_d, flush_e;
-wire forwardA_d, forwardB_d;
+wire [1:0] forwardA_d, forwardB_d;
 wire forward_jr_f, forward_jalr_f;
 wire [1:0] forwardA_e, forwardB_e;
 
@@ -73,16 +73,22 @@ wire [31:0] Lo_Out_m, Lo_Out_wb;
 wire [1:0] Hi_Src_d, Hi_Src_e, Hi_Src_m;
 wire [1:0] Lo_Src_d, Lo_Src_e, Lo_Src_m;
 
+wire branch_pred_sel;
+wire [31:0] branch_pred_target;
+wire mispred_sel;
+wire [31:0] mispred_correct_target;
+wire [31:0] jump_write_target;
+
 PC_reg pc_reg_inst (
 .clk    (clk),
 .rst_n  (rst_n),
 .enable (!stall_f),
 .pc_next(PC_next),
-.pc     (PC)
+.pc     (PC_f)
 );
 
 Instr_Mem instr_mem_inst (
-.pc   (PC),
+.pc   (PC_f),
 .instr(Instr_f)
 );
 
@@ -159,8 +165,9 @@ Hazard_Unit hazard_unit_inst (
 .branch_d       (Branch_d),
 .jump_d         (Jump_d),
 .mem_to_reg_e   (Mem_to_Reg_e),
-.reg_write_e    (Reg_Write_e),
 .mem_to_reg_m   (Mem_to_Reg_m),
+.mem_to_reg_wb  (Mem_to_Reg_wb),
+.reg_write_e    (Reg_Write_e),
 .reg_write_m    (Reg_Write_m),
 .reg_write_wb   (Reg_Write_wb),
 .link_d         (Link_d),
@@ -186,11 +193,13 @@ f2d_regs f2d_regs_inst (
 .clk        (clk),
 .rst_n      (rst_n),
 .enable     (!stall_d),
-.clear      ((PCSrc_d && !stall_d) || (Jump_d != NO_JUMP)),
+.clear      (mispred_sel & !stall_d),           // flush_f
 .instr_f    (Instr_f),
 .pc_plus_4_f(PC_Plus_4_f),
+.pc_f       (PC_f),
 .instr_d    (Instr_d),
-.pc_plus_4_d(PC_Plus_4_d)
+.pc_plus_4_d(PC_Plus_4_d),
+.pc_d       (PC_d)
 );
 
 d2e_regs d2e_regs_inst (
@@ -335,20 +344,47 @@ lo_reg lo_reg_inst (
 .lo_out  (Lo_Out_m)
 );
 
+Branch_Predictor branch_predictor_inst (
+    .clk(clk),
+    .rst_n(rst_n),
+    .read_address(PC_f),
+    .hazard_stall(stall_f),
+    .write_address(PC_d),
+    .branch_write_enable(Branch_d != NO_BRANCH),
+    .jump_write_enable(Jump_d != NO_JUMP),
+    .branch_write_target(PC_Branch_d),
+    .jump_write_target(jump_write_target),
+    .branch_taken(PCSrc_d),
+    .branch_pred_sel(branch_pred_sel),
+    .branch_pred_target(branch_pred_target),
+    .mispred_sel(mispred_sel),
+    .mispred_correct_target(mispred_correct_target)
+);
 
-assign PC_Plus_4_f = PC + 4;
+
+assign PC_Plus_4_f = PC_f + 4;
 assign PC_Branch_d = PC_Plus_4_d + {SignImm_d[29:0], 2'b00};
 assign PC_Jump = {PC_Plus_4_d[31:28], Instr_d[25:0], 2'b00};
 assign Jr_Target_Addr = (forward_jr_f) ? Read_Data_m : read_data1_d;
 assign Jalr_Target_Addr = (forward_jalr_f) ? ALU_out_e : read_data1_d;
-assign PC_next = (Jump_d == JTA) ? PC_Jump :
-                 (Jump_d == JR && ~Link_d) ?  Jr_Target_Addr :
-                 (Jump_d == JR && Link_d) ?  Jalr_Target_Addr :
-                 (PCSrc_d) ? PC_Branch_d : PC_Plus_4_f;
 
-assign SrcA_00_d = (forwardA_d) ? ALU_out_m : read_data1_d;
-assign SrcB_00_d = (forwardB_d) ? ALU_out_m : read_data2_d;
+assign PC_next = (mispred_sel) ? mispred_correct_target :
+                 (branch_pred_sel) ? branch_pred_target : PC_Plus_4_f;
 
+assign jump_write_target = (Jump_d == JTA) ? PC_Jump :
+                           (Jump_d == JR && ~Link_d) ? Jr_Target_Addr :
+                           (Jump_d == JR && Link_d) ? Jalr_Target_Addr : 32'd0;
+
+//assign SrcA_00_d = (forwardA_d) ? ALU_out_m : read_data1_d;
+//assign SrcB_00_d = (forwardB_d) ? ALU_out_m : read_data2_d;
+
+assign SrcA_00_d = (forwardA_d == 2'b00) ? ALU_out_m :
+                   (forwardA_d == 2'b01) ? Hi_Out_wb :
+                   (forwardA_d == 2'b10) ? Lo_Out_wb : read_data1_d;
+
+assign SrcB_00_d = (forwardB_d == 2'b00) ? ALU_out_m :
+                   (forwardB_d == 2'b01) ? Hi_Out_wb :
+                   (forwardB_d == 2'b10) ? Lo_Out_wb : read_data2_d;
 
 assign rs_d = Instr_d[25:21];
 assign rt_d = Instr_d[20:16];

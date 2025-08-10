@@ -13,15 +13,16 @@ module Hazard_Unit (
     input wire [2:0] branch_d,
     input wire [1:0] jump_d,
     input wire [1:0] mem_to_reg_e,
-    input wire reg_write_e,
     input wire [1:0] mem_to_reg_m,
+    input wire [1:0] mem_to_reg_wb,
+    input wire reg_write_e,
     input wire reg_write_m,
     input wire reg_write_wb,
     input wire link_d,
     output wire stall_f,
     output wire stall_d,
-    output wire forwardA_d,
-    output wire forwardB_d,
+    output wire [1:0] forwardA_d,
+    output wire [1:0] forwardB_d,
     output wire [1:0] forwardA_e,
     output wire [1:0] forwardB_e,
     output wire flush_e,
@@ -52,8 +53,22 @@ assign forwardB_e = (condition1_RtE) ? 2'b10 :
                     (condition2_RtE) ? 2'b01 : 2'b00;
 
 // Data Hazard solved by forward in Decode
-assign forwardA_d = (rs_d != 0) && (rs_d == write_reg_m) && reg_write_m;
-assign forwardB_d = (rt_d != 0) && (rt_d == write_reg_m) && reg_write_m;
+wire condition1_RsD, condition2_RsD, condition3_RsD;
+wire condition1_RtD, condition2_RtD, condition3_RtD;
+
+assign condition1_RsD = (rs_d != 0) && (rs_d == write_reg_m) && reg_write_m;
+assign condition2_RsD = (rs_d != 0) && (rs_d == write_reg_wb) && (mem_to_reg_wb == HI);
+assign condition3_RsD = (rs_d != 0) && (rs_d == write_reg_wb) && (mem_to_reg_wb == LO);
+assign forwardA_d = (condition1_RsD) ? 2'b00 :
+                    (condition2_RsD) ? 2'b01 :
+                    (condition3_RsD) ? 2'b10 : 2'b11;
+
+assign condition1_RtD = (rt_d != 0) && (rt_d == write_reg_m) && reg_write_m;
+assign condition2_RtD = (rt_d != 0) && (rt_d == write_reg_wb) && (mem_to_reg_wb == HI);
+assign condition3_RtD = (rt_d != 0) && (rt_d == write_reg_wb) && (mem_to_reg_wb == LO);
+assign forwardB_d = (condition1_RtD) ? 2'b00 :
+                    (condition2_RtD) ? 2'b01 :
+                    (condition3_RtD) ? 2'b10 : 2'b11;
 
 // Data & Control Hazard solved by Stall
 wire LwStall;  // Stall for lw instruction

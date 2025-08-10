@@ -27,11 +27,12 @@ initial begin
     rst_n = 1;
 
     // Initialize memory with some test instructions or load from file
-    $readmemh("Tests/Test6.hex", dut.instr_mem_inst.mem);
+    $readmemh("Tests/Test7.hex", dut.instr_mem_inst.mem);
 
-    // Run for a sufficient time to execute all instructions
-    #2000;
-    //#(28050 * clock_period);   // For test 7 only
+    // Run for a sufficient time to execute all instructions (Uncomment only one line of the next 3 lines)
+    //#2000;
+    //#(28050 * clock_period);   // For test 7 only (Without Branch Prediction)
+    #(23050 * clock_period);   // For test 7 only (With Branch Prediction)
 
     $stop;
 end
