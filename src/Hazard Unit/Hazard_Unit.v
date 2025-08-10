@@ -12,13 +12,14 @@ module Hazard_Unit (
     input wire [4:0] write_reg_wb,
     input wire [2:0] branch_d,
     input wire [1:0] jump_d,
-    input wire [1:0] mem_to_reg_e,
-    input wire [1:0] mem_to_reg_m,
-    input wire [1:0] mem_to_reg_wb,
+    input wire [2:0] mem_to_reg_e,
+    input wire [2:0] mem_to_reg_m,
+    input wire [2:0] mem_to_reg_wb,
     input wire reg_write_e,
     input wire reg_write_m,
     input wire reg_write_wb,
     input wire link_d,
+    input wire Overflow,
     output wire stall_f,
     output wire stall_d,
     output wire [1:0] forwardA_d,
@@ -26,7 +27,7 @@ module Hazard_Unit (
     output wire [1:0] forwardA_e,
     output wire [1:0] forwardB_e,
     output wire flush_e,
-    output wire forward_jr_f,
+    output wire [1:0] forward_jr_f,
     output wire forward_jalr_f
 );
 
@@ -36,7 +37,7 @@ localparam [2:0] NO_BRANCH = 3'b000, BRANCH_EQUAL = 3'b001, BRANCH_NOT_EQUAL = 3
 
 localparam [1:0] NO_JUMP = 2'b00, JTA = 2'b01, JR = 2'b10;
 
-localparam [1:0] ALU_OUT = 2'b00, MEM_OUT = 2'b01, HI = 2'b10, LO = 2'b11;
+localparam [2:0] ALU_OUT = 3'b000, MEM_OUT = 3'b001, HI = 3'b010, LO = 3'b011, C0 = 3'b100;
 
 // Data Hazard solved by forward in Execute
 wire condition1_RsE, condition2_RsE;
@@ -71,25 +72,32 @@ assign forwardB_d = (condition1_RtD) ? 2'b00 :
                     (condition3_RtD) ? 2'b10 : 2'b11;
 
 // Data & Control Hazard solved by Stall
-wire LwStall;  // Stall for lw instruction
-wire MfStall;  // Stall for mfhi/mflo instructions
+wire LwStall;           // Stall for lw instruction
+wire mfhi_mflo_stall;   // Stall for mfhi/mflo instructions
 wire branchstall_cond1, branchstall_cond2, branchstall;
 
 assign LwStall = ((rs_d == rt_e) || (rt_d == rt_e)) && (mem_to_reg_e == MEM_OUT);
-assign MfStall = ((rs_d == rt_e) || (rt_d == rt_e)) && ((mem_to_reg_e == HI) || (mem_to_reg_e == LO));
+
+assign mfhi_mflo_stall = ((rs_d == rt_e) || (rt_d == rt_e)) && ((mem_to_reg_e == HI) || (mem_to_reg_e == LO));
 
 assign branchstall_cond1 = (branch_d != NO_BRANCH) && reg_write_e && ((write_reg_e == rs_d) || (write_reg_e == rt_d));
 assign branchstall_cond2 = (branch_d != NO_BRANCH) && ((mem_to_reg_m == MEM_OUT) || (mem_to_reg_m == HI) || (mem_to_reg_m == LO)) && ((write_reg_m == rs_d) || (write_reg_m == rt_d));
 assign branchstall = branchstall_cond1 || branchstall_cond2;
 
 // Data Hazard solved by forward from memory stage between lw $ra and jr $ra
-assign forward_jr_f = (jump_d == JR) && ~link_d && (mem_to_reg_m == MEM_OUT) && (rs_d == write_reg_m);
+wire forward_lw_jr_f ,forward_mfc0_jr_f;
+
+assign forward_lw_jr_f = (jump_d == JR) && ~link_d && (mem_to_reg_m == MEM_OUT) && (rs_d == write_reg_m);
+assign forward_mfc0_jr_f = (jump_d == JR) && ~link_d && (mem_to_reg_e == C0) && (rs_d == write_reg_e);
+
+assign forward_jr_f = (forward_lw_jr_f) ? 2'b01 :
+                      (forward_mfc0_jr_f) ? 2'b10 : 2'b00;
 
 // Data Hazard solved by forward from execute stage between addi $rs and jalr $rs
 assign forward_jalr_f = (jump_d == JR) && link_d && reg_write_e && (rs_d == write_reg_e);
 
-assign stall_f = LwStall || MfStall || branchstall;
-assign stall_d = LwStall || MfStall || branchstall;
-assign flush_e = LwStall || MfStall || branchstall;
+assign stall_f = LwStall || mfhi_mflo_stall || branchstall;
+assign stall_d = LwStall || mfhi_mflo_stall || branchstall;
+assign flush_e = LwStall || mfhi_mflo_stall || branchstall || Overflow;
 
 endmodule

@@ -5,7 +5,7 @@ module e2m_regs (
     input wire [31:0] write_data_e,
     input wire [4:0] write_reg_e,
     input wire reg_write_e,
-    input wire [1:0] mem_to_reg_e,
+    input wire [2:0] mem_to_reg_e,
     input wire mem_write_e,
     input wire [1:0] mem_data_size_e,
     input wire link_e,
@@ -16,11 +16,13 @@ module e2m_regs (
     input wire lo_write_e,
     input wire [1:0] hi_src_e,
     input wire [1:0] lo_src_e,
+    input wire [4:0] rd_e,
+    input wire [31:0] C0_Reg_Data_e,
     output reg [31:0] alu_out_m,
     output reg [31:0] write_data_m,
     output reg [4:0] write_reg_m,
     output reg reg_write_m,
-    output reg [1:0] mem_to_reg_m,
+    output reg [2:0] mem_to_reg_m,
     output reg mem_write_m,
     output reg [1:0] mem_data_size_m,
     output reg link_m,
@@ -30,7 +32,9 @@ module e2m_regs (
     output reg hi_write_m,
     output reg lo_write_m,
     output reg [1:0] hi_src_m,
-    output reg [1:0] lo_src_m
+    output reg [1:0] lo_src_m,
+    output reg [4:0] rd_m,
+    output reg [31:0] C0_Reg_Data_m
 );
 
 always @(posedge clk or negedge rst_n) begin
@@ -39,7 +43,7 @@ always @(posedge clk or negedge rst_n) begin
         write_data_m <= 32'd0;
         write_reg_m <= 5'd0;
         reg_write_m <= 1'd0;
-        mem_to_reg_m <= 1'd0;
+        mem_to_reg_m <= 2'd0;
         mem_write_m <= 1'd0;
         mem_data_size_m <= 2'd0;
         link_m <= 1'd0;
@@ -50,6 +54,8 @@ always @(posedge clk or negedge rst_n) begin
         lo_write_m <= 1'd0;
         hi_src_m <= 2'd0;
         lo_src_m <= 2'd0;
+        rd_m <= 5'd0;
+        C0_Reg_Data_m <= 32'd0;
     end else begin
         alu_out_m <= alu_out_e;
         write_data_m <= write_data_e;
@@ -66,6 +72,8 @@ always @(posedge clk or negedge rst_n) begin
         lo_write_m <= lo_write_e;
         hi_src_m <= hi_src_e;
         lo_src_m <= lo_src_e;
+        rd_m <= rd_e;
+        C0_Reg_Data_m <= C0_Reg_Data_e;
     end
 end
 

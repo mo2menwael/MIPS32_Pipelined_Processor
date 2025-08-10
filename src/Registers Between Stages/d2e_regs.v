@@ -12,7 +12,7 @@ module d2e_regs (
     input wire alu_src_d,
     input wire reg_dst_d,
     input wire reg_write_d,
-    input wire [1:0] mem_to_reg_d,
+    input wire [2:0] mem_to_reg_d,
     input wire mem_write_d,
     input wire unsigned_instr_d,
     input wire [4:0] shamt_d,
@@ -25,6 +25,7 @@ module d2e_regs (
     input wire lo_write_d,
     input wire [1:0] hi_src_d,
     input wire [1:0] lo_src_d,
+    input wire [31:0] C0_Reg_Data_d,
     output reg [31:0] srcA_00_e,
     output reg [31:0] srcB_00_e,
     output reg [4:0] rs_e,
@@ -35,7 +36,7 @@ module d2e_regs (
     output reg alu_src_e,
     output reg reg_dst_e,
     output reg reg_write_e,
-    output reg [1:0] mem_to_reg_e,
+    output reg [2:0] mem_to_reg_e,
     output reg mem_write_e,
     output reg unsigned_instr_e,
     output reg [4:0] shamt_e,
@@ -47,7 +48,8 @@ module d2e_regs (
     output reg hi_write_e,
     output reg lo_write_e,
     output reg [1:0] hi_src_e,
-    output reg [1:0] lo_src_e
+    output reg [1:0] lo_src_e,
+    output reg [31:0] C0_Reg_Data_e
 );
 
 always @(posedge clk or negedge rst_n) begin
@@ -62,7 +64,7 @@ always @(posedge clk or negedge rst_n) begin
         alu_src_e <= 1'd0;
         reg_dst_e <= 1'd0;
         reg_write_e <= 1'd0;
-        mem_to_reg_e <= 1'd0;
+        mem_to_reg_e <= 2'd0;
         mem_write_e <= 1'd0;
         unsigned_instr_e <= 1'd0;
         shamt_e <= 5'd0;
@@ -75,6 +77,7 @@ always @(posedge clk or negedge rst_n) begin
         lo_write_e <= 1'd0;
         hi_src_e <= 2'd0;
         lo_src_e <= 2'd0;
+        C0_Reg_Data_e <= 32'd0;
     end
     else if (clear) begin
         srcA_00_e <= 32'd0;
@@ -100,6 +103,7 @@ always @(posedge clk or negedge rst_n) begin
         lo_write_e <= 1'd0;
         hi_src_e <= 2'd0;
         lo_src_e <= 2'd0;
+        C0_Reg_Data_e <= 32'd0;
     end
     else begin
         srcA_00_e <= srcA_00_d;
@@ -125,6 +129,7 @@ always @(posedge clk or negedge rst_n) begin
         lo_write_e <= lo_write_d;
         hi_src_e <= hi_src_d;
         lo_src_e <= lo_src_d;
+        C0_Reg_Data_e <= C0_Reg_Data_d;
     end
 end
 

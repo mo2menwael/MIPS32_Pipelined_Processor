@@ -1,5 +1,6 @@
 // verilog_lint: waive-start explicit-parameter-storage-type
 // verilog_lint: waive-start parameter-name-style
+// verilog_lint: waive-start line-length
 
 module MIPS_Pipelined_Top (
     input wire clk,
@@ -13,7 +14,7 @@ localparam [2:0] NO_BRANCH = 3'b000, BRANCH_EQUAL = 3'b001, BRANCH_NOT_EQUAL = 3
 
 localparam [1:0] NO_JUMP = 2'b00, JTA = 2'b01, JR = 2'b10;
 
-localparam [1:0] ALU_OUT = 2'b00, MEM_OUT = 2'b01, HI = 2'b10, LO = 2'b11;
+localparam [2:0] ALU_OUT = 3'b000, MEM_OUT = 3'b001, HI = 3'b010, LO = 3'b011, C0 = 3'b100;
 
 localparam [1:0] NO_MULT_DIV = 2'b00, MULT = 2'b01, DIV = 2'b10;
 
@@ -27,6 +28,7 @@ wire [31:0] Instr_f, Instr_d;
 wire [31:0] SignImm_d, SignImm_e;
 wire [4:0] rs_d, rt_d, rd_d;
 wire [4:0] rs_e, rt_e, rd_e;
+wire [4:0] rd_m, rd_wb;
 wire [31:0] SrcA_e, SrcB_e;
 wire [31:0] ALU_out_e, ALU_out_m, ALU_out_wb;
 wire [31:0] Write_Data_e, Write_Data_m;
@@ -39,7 +41,7 @@ wire [31:0] Reg_File_Write_Data;
 wire [4:0] Reg_File_Write_Addr;
 
 wire Reg_Write_d, Reg_Write_e, Reg_Write_m, Reg_Write_wb;
-wire [1:0] Mem_to_Reg_d, Mem_to_Reg_e, Mem_to_Reg_m, Mem_to_Reg_wb;
+wire [2:0] Mem_to_Reg_d, Mem_to_Reg_e, Mem_to_Reg_m, Mem_to_Reg_wb;
 wire Mem_Write_d, Mem_Write_e, Mem_Write_m;
 wire [3:0] ALU_Control_d, ALU_Control_e;
 wire ALU_Src_d, ALU_Src_e;
@@ -56,7 +58,8 @@ wire [1:0] Sign_Extend;
 
 wire stall_f, stall_d, flush_e;
 wire [1:0] forwardA_d, forwardB_d;
-wire forward_jr_f, forward_jalr_f;
+wire [1:0] forward_jr_f;
+wire forward_jalr_f;
 wire [1:0] forwardA_e, forwardB_e;
 
 
@@ -79,10 +82,16 @@ wire mispred_sel;
 wire [31:0] mispred_correct_target;
 wire [31:0] jump_write_target;
 
+wire EPC_Write, Cause_Write;
+wire [1:0] Int_Cause;
+wire [31:0] C0_Reg_Data_d, C0_Reg_Data_e, C0_Reg_Data_m, C0_Reg_Data_wb;
+wire Undefined_Instr_d;
+wire Div_by_Zero;
+
 PC_reg pc_reg_inst (
 .clk    (clk),
 .rst_n  (rst_n),
-.enable (!stall_f),
+.enable (!stall_f | EPC_Write),
 .pc_next(PC_next),
 .pc     (PC_f)
 );
@@ -131,27 +140,29 @@ ALU ALU_inst (
 );
 
 Ctrl_Unit ctrl_unit_inst (
-.op_code         (Instr_d[31:26]),
-.funct           (Instr_d[5:0]),
-.rt_first_bit    (Instr_d[16]),
-.reg_dst_d       (Reg_Dst_d),
-.reg_write_d     (Reg_Write_d),
-.mem_to_reg_d    (Mem_to_Reg_d),
-.alu_src_d       (ALU_Src_d),
-.alu_control_d   (ALU_Control_d),
-.mem_write_d     (Mem_Write_d),
-.branch_d        (Branch_d),
-.jump_d          (Jump_d),
-.unsigned_instr_d(Unsigned_Instr_d),
-.sign_extend_d   (Sign_Extend),
-.mem_data_size_d (Mem_Data_Size_d),
-.link_d          (Link_d),
-.hi_write_d      (Hi_Write_d),
-.lo_write_d      (Lo_Write_d),
-.mult_en_d       (Mult_En_d),
-.div_en_d        (Div_En_d),
-.hi_src_d        (Hi_Src_d),
-.lo_src_d        (Lo_Src_d)
+.op_code          (Instr_d[31:26]),
+.funct            (Instr_d[5:0]),
+.rt_first_bit     (Instr_d[16]),
+.rs_third_bit     (Instr_d[23]),
+.reg_dst_d        (Reg_Dst_d),
+.reg_write_d      (Reg_Write_d),
+.mem_to_reg_d     (Mem_to_Reg_d),
+.alu_src_d        (ALU_Src_d),
+.alu_control_d    (ALU_Control_d),
+.mem_write_d      (Mem_Write_d),
+.branch_d         (Branch_d),
+.jump_d           (Jump_d),
+.unsigned_instr_d (Unsigned_Instr_d),
+.sign_extend_d    (Sign_Extend),
+.mem_data_size_d  (Mem_Data_Size_d),
+.link_d           (Link_d),
+.hi_write_d       (Hi_Write_d),
+.lo_write_d       (Lo_Write_d),
+.mult_en_d        (Mult_En_d),
+.div_en_d         (Div_En_d),
+.hi_src_d         (Hi_Src_d),
+.lo_src_d         (Lo_Src_d),
+.undefined_instr_d(Undefined_Instr_d)
 );
 
 Hazard_Unit hazard_unit_inst (
@@ -171,6 +182,7 @@ Hazard_Unit hazard_unit_inst (
 .reg_write_m    (Reg_Write_m),
 .reg_write_wb   (Reg_Write_wb),
 .link_d         (Link_d),
+.Overflow       (Overflow),
 .stall_f        (stall_f),
 .stall_d        (stall_d),
 .forwardA_d     (forwardA_d),
@@ -193,7 +205,7 @@ f2d_regs f2d_regs_inst (
 .clk        (clk),
 .rst_n      (rst_n),
 .enable     (!stall_d),
-.clear      (mispred_sel & !stall_d),           // flush_f
+.clear      ((mispred_sel & !stall_d) || (EPC_Write)),           // flush_f
 .instr_f    (Instr_f),
 .pc_plus_4_f(PC_Plus_4_f),
 .pc_f       (PC_f),
@@ -229,6 +241,7 @@ d2e_regs d2e_regs_inst (
 .lo_src_d        (Lo_Src_d),
 .hi_write_d      (Hi_Write_d),
 .lo_write_d      (Lo_Write_d),
+.C0_Reg_Data_d   (C0_Reg_Data_d),
 .hi_write_e      (Hi_Write_e),
 .lo_write_e      (Lo_Write_e),
 .hi_src_e        (Hi_Src_e),
@@ -251,7 +264,8 @@ d2e_regs d2e_regs_inst (
 .shamt_e         (Shamt_e),
 .mem_data_size_e (Mem_Data_Size_e),
 .link_e          (Link_e),
-.pc_plus_4_e     (PC_Plus_4_e)
+.pc_plus_4_e     (PC_Plus_4_e),
+.C0_Reg_Data_e   (C0_Reg_Data_e)
 );
 
 e2m_regs e2m_regs_inst (
@@ -272,6 +286,8 @@ e2m_regs e2m_regs_inst (
 .lo_write_e     (Lo_Write_e),
 .mult_result_e  (Mult_Result_e),
 .div_result_e   (Div_Result_e),
+.rd_e           (rd_e),
+.C0_Reg_Data_e  (C0_Reg_Data_e),
 .hi_src_m       (Hi_Src_m),
 .lo_src_m       (Lo_Src_m),
 .hi_write_m     (Hi_Write_m),
@@ -286,33 +302,39 @@ e2m_regs e2m_regs_inst (
 .write_data_m   (Write_Data_m),
 .mem_data_size_m(Mem_Data_Size_m),
 .link_m         (Link_m),
-.pc_plus_4_m    (PC_Plus_4_m)
+.pc_plus_4_m    (PC_Plus_4_m),
+.rd_m           (rd_m),
+.C0_Reg_Data_m  (C0_Reg_Data_m)
 );
 
 m2wb_regs m2wb_regs_inst (
-.clk          (clk),
-.rst_n        (rst_n),
-.reg_write_m  (Reg_Write_m),
-.mem_to_reg_m (Mem_to_Reg_m),
-.write_reg_m  (Write_Reg_m),
-.alu_out_m    (ALU_out_m),
-.read_data_m  (Read_Data_m),
-.link_m       (Link_m),
-.pc_plus_4_m  (PC_Plus_4_m),
-.hi_out_m     (Hi_Out_m),
-.lo_out_m     (Lo_Out_m),
-.hi_out_wb    (Hi_Out_wb),
-.lo_out_wb    (Lo_Out_wb),
-.reg_write_wb (Reg_Write_wb),
-.mem_to_reg_wb(Mem_to_Reg_wb),
-.write_reg_wb (Write_Reg_wb),
-.alu_out_wb   (ALU_out_wb),
-.read_data_wb (Read_Data_wb),
-.pc_plus_4_wb (PC_Plus_4_wb),
-.link_wb      (Link_wb)
+.clk           (clk),
+.rst_n         (rst_n),
+.reg_write_m   (Reg_Write_m),
+.mem_to_reg_m  (Mem_to_Reg_m),
+.write_reg_m   (Write_Reg_m),
+.alu_out_m     (ALU_out_m),
+.read_data_m   (Read_Data_m),
+.link_m        (Link_m),
+.pc_plus_4_m   (PC_Plus_4_m),
+.hi_out_m      (Hi_Out_m),
+.lo_out_m      (Lo_Out_m),
+.rd_m          (rd_m),
+.C0_Reg_Data_m (C0_Reg_Data_m),
+.hi_out_wb     (Hi_Out_wb),
+.lo_out_wb     (Lo_Out_wb),
+.reg_write_wb  (Reg_Write_wb),
+.mem_to_reg_wb (Mem_to_Reg_wb),
+.write_reg_wb  (Write_Reg_wb),
+.alu_out_wb    (ALU_out_wb),
+.read_data_wb  (Read_Data_wb),
+.pc_plus_4_wb  (PC_Plus_4_wb),
+.link_wb       (Link_wb),
+.rd_wb         (rd_wb),
+.C0_Reg_Data_wb(C0_Reg_Data_wb)
 );
 
-Div_Unit div_unit_inst (
+DIV_Unit div_unit_inst (
 .op1           (SrcA_e),
 .op2           (Write_Data_e),
 .unsigned_instr(Unsigned_Instr_e),
@@ -320,7 +342,7 @@ Div_Unit div_unit_inst (
 .div_result    (Div_Result_e)
 );
 
-Mult_Unit mult_unit_inst (
+MULT_Unit mult_unit_inst (
 .op1           (SrcA_e),
 .op2           (Write_Data_e),
 .unsigned_instr(Unsigned_Instr_e),
@@ -361,23 +383,35 @@ Branch_Predictor branch_predictor_inst (
     .mispred_correct_target(mispred_correct_target)
 );
 
+Exception_Unit exception_unit_inst (
+    .clk(clk),
+    .rst_n(rst_n),
+    .pc_f(PC_f),
+    .pc_d(PC_d),
+    .EPC_Write(EPC_Write),
+    .Int_Cause(Int_Cause),
+    .Cause_Write(Cause_Write),
+    .C0_Reg_Address(rd_d),
+    .C0_Reg_Data(C0_Reg_Data_d)
+);
 
 assign PC_Plus_4_f = PC_f + 4;
 assign PC_Branch_d = PC_Plus_4_d + {SignImm_d[29:0], 2'b00};
 assign PC_Jump = {PC_Plus_4_d[31:28], Instr_d[25:0], 2'b00};
-assign Jr_Target_Addr = (forward_jr_f) ? Read_Data_m : read_data1_d;
 assign Jalr_Target_Addr = (forward_jalr_f) ? ALU_out_e : read_data1_d;
+assign Jr_Target_Addr = (forward_jr_f == 2'b01) ? Read_Data_m :
+                        (forward_jr_f == 2'b10) ? C0_Reg_Data_e : read_data1_d;
 
-assign PC_next = (mispred_sel) ? mispred_correct_target :
+assign PC_next = (EPC_Write) ? 32'd1120 :                             // Change 32'd1120 for your exception handler address Or implement a virtual memory
+                 (mispred_sel) ? mispred_correct_target :             // that has a TLB (Translation Lookaside Buffer) that will translate the addresses for you
                  (branch_pred_sel) ? branch_pred_target : PC_Plus_4_f;
 
 assign jump_write_target = (Jump_d == JTA) ? PC_Jump :
                            (Jump_d == JR && ~Link_d) ? Jr_Target_Addr :
                            (Jump_d == JR && Link_d) ? Jalr_Target_Addr : 32'd0;
 
-//assign SrcA_00_d = (forwardA_d) ? ALU_out_m : read_data1_d;
-//assign SrcB_00_d = (forwardB_d) ? ALU_out_m : read_data2_d;
-
+// The Hi_Out and Lo_Out bypass is only done after the branch prediction was set up as to
+// prevent incorrect data from being used in the positive edge clock in branch comparison unit
 assign SrcA_00_d = (forwardA_d == 2'b00) ? ALU_out_m :
                    (forwardA_d == 2'b01) ? Hi_Out_wb :
                    (forwardA_d == 2'b10) ? Lo_Out_wb : read_data1_d;
@@ -400,7 +434,8 @@ assign SrcB_e = (ALU_Src_e) ? SignImm_e : Write_Data_e;
 
 assign result_wb = (Mem_to_Reg_wb == ALU_OUT) ? ALU_out_wb :
                    (Mem_to_Reg_wb == MEM_OUT) ? Read_Data_wb :
-                   (Mem_to_Reg_wb == HI) ? Hi_Out_wb : Lo_Out_wb;
+                   (Mem_to_Reg_wb == HI) ? Hi_Out_wb :
+                   (Mem_to_Reg_wb == LO) ? Lo_Out_wb : C0_Reg_Data_wb;
 
 assign Reg_File_Write_Data = (Link_wb) ? PC_Plus_4_wb : result_wb;
 assign Reg_File_Write_Addr = (Link_wb) ? 5'd31 : Write_Reg_wb;
@@ -410,6 +445,13 @@ assign Hi_In_m = (Hi_Src_m == NO_MULT_DIV) ? ALU_out_m :
 
 assign Lo_In_m = (Lo_Src_m == NO_MULT_DIV) ? ALU_out_m :
                  (Lo_Src_m == MULT) ? Mult_Result_m[31:0] : Div_Result_m[31:0];
+
+// Nor to check if the value is equal to zero or not
+assign Div_by_Zero = (Instr_d[5:0] == 6'b011010 || Instr_d[5:0] == 6'b011011) && (~|Instr_d[31:26]) && (~|SrcB_00_d);
+
+assign EPC_Write = (Overflow | Undefined_Instr_d | Div_by_Zero);
+assign Int_Cause = Overflow ? 2'b00 : (Undefined_Instr_d ? 2'b01 : (Div_by_Zero ? 2'b10 : 2'b11));
+assign Cause_Write = EPC_Write;
 
 assign led = reg_file_inst.reg_file_mem[16][3:0];
 

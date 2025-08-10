@@ -7,9 +7,10 @@ module Ctrl_Unit (
     input wire [5:0] op_code,
     input wire [5:0] funct,
     input wire rt_first_bit,
+    input wire rs_third_bit,
     output reg reg_dst_d,
     output reg reg_write_d,
-    output reg [1:0] mem_to_reg_d,
+    output reg [2:0] mem_to_reg_d,
     output reg alu_src_d,
     output reg [3:0] alu_control_d,
     output reg mem_write_d,
@@ -24,7 +25,8 @@ module Ctrl_Unit (
     output reg hi_write_d,
     output reg lo_write_d,
     output reg [1:0] hi_src_d,
-    output reg [1:0] lo_src_d
+    output reg [1:0] lo_src_d,
+    output reg undefined_instr_d
 );
 
 localparam [2:0] NO_BRANCH = 3'b000, BRANCH_EQUAL = 3'b001, BRANCH_NOT_EQUAL = 3'b010,
@@ -33,7 +35,7 @@ localparam [2:0] NO_BRANCH = 3'b000, BRANCH_EQUAL = 3'b001, BRANCH_NOT_EQUAL = 3
 
 localparam [1:0] NO_JUMP = 2'b00, JTA = 2'b01, JR = 2'b10;
 
-localparam [1:0] ALU_OUT = 2'b00, MEM_OUT = 2'b01, HI = 2'b10, LO = 2'b11;
+localparam [2:0] ALU_OUT = 3'b000, MEM_OUT = 3'b001, HI = 3'b010, LO = 3'b011, C0 = 3'b100;
 
 localparam [1:0] NO_MULT_DIV = 2'b00, MULT = 2'b01, DIV = 2'b10;
 
@@ -41,7 +43,7 @@ always@(*) begin
     // R-type instructions
     if (~|op_code) begin
         reg_dst_d = 1; reg_write_d = 1; alu_src_d = 0; mem_to_reg_d = ALU_OUT; mem_write_d = 0; mem_data_size_d = 2'b10; link_d = 1'b0;
-        alu_control_d = 4'b1111; branch_d = NO_BRANCH; jump_d = NO_JUMP; unsigned_instr_d = 1'b0; sign_extend_d = 2'b00;
+        alu_control_d = 4'b1111; branch_d = NO_BRANCH; jump_d = NO_JUMP; unsigned_instr_d = 1'b0; sign_extend_d = 2'b00; undefined_instr_d = 1'b0;
         mult_en_d = 1'b0; div_en_d = 1'b0; hi_write_d = 1'b0; lo_write_d = 1'b0; hi_src_d = NO_MULT_DIV; lo_src_d = NO_MULT_DIV;
 
         case (funct)
@@ -122,21 +124,16 @@ always@(*) begin
                 alu_control_d = 4'b1100; unsigned_instr_d = 1'b1;
             end
             default : begin
-                reg_dst_d = 1; reg_write_d = 1; alu_src_d = 0; mem_to_reg_d = ALU_OUT; mem_write_d = 0; mem_data_size_d = 2'b10; link_d = 1'b0;
-                alu_control_d = 4'b1111; branch_d = NO_BRANCH; jump_d = NO_JUMP; unsigned_instr_d = 1'b0; sign_extend_d = 2'b00;
+                reg_dst_d = 1; reg_write_d = 0; alu_src_d = 0; mem_to_reg_d = ALU_OUT; mem_write_d = 0; mem_data_size_d = 2'b10; link_d = 1'b0;
+                alu_control_d = 4'b1111; branch_d = NO_BRANCH; jump_d = NO_JUMP; unsigned_instr_d = 1'b0; sign_extend_d = 2'b00; undefined_instr_d = 1'b1;
                 mult_en_d = 1'b0; div_en_d = 1'b0; hi_write_d = 1'b0; lo_write_d = 1'b0; hi_src_d = NO_MULT_DIV; lo_src_d = NO_MULT_DIV;
             end
         endcase
     end
-    else if (op_code == 6'b011100) begin  // MUL (Multiply output in 32-bit)
-        alu_control_d = 4'b1101; reg_dst_d = 1; reg_write_d = 1; alu_src_d = 0; mem_to_reg_d = ALU_OUT; mem_write_d = 0; mem_data_size_d = 2'b10;
-        link_d = 1'b0; branch_d = NO_BRANCH; jump_d = NO_JUMP; unsigned_instr_d = 1'b0; sign_extend_d = 2'b00;
-        mult_en_d = 1'b0; div_en_d = 1'b0; hi_write_d = 1'b0; lo_write_d = 1'b0; hi_src_d = NO_MULT_DIV; lo_src_d = NO_MULT_DIV;
-    end
     else begin
         reg_dst_d = 1'b0; unsigned_instr_d = 1'b0; reg_write_d = 1'b0; mem_to_reg_d = ALU_OUT; mem_data_size_d = 2'b10; link_d = 1'b0;
         mem_write_d = 1'b0; branch_d = NO_BRANCH; jump_d = NO_JUMP; alu_control_d = 4'b1111; alu_src_d = 1'b0; sign_extend_d = 2'b00;
-        mult_en_d = 1'b0; div_en_d = 1'b0; hi_write_d = 1'b0; lo_write_d = 1'b0; hi_src_d = NO_MULT_DIV; lo_src_d = NO_MULT_DIV;
+        mult_en_d = 1'b0; div_en_d = 1'b0; hi_write_d = 1'b0; lo_write_d = 1'b0; hi_src_d = NO_MULT_DIV; lo_src_d = NO_MULT_DIV; undefined_instr_d = 1'b0;
 
         case (op_code)
             // branch less than zero/branch greater than or equal to zero
@@ -208,6 +205,18 @@ always@(*) begin
                 reg_write_d = 1'b1; alu_src_d = 1'b1; sign_extend_d = 2'b10; alu_control_d = 4'b1111; // to pass SrcB from ALU
             end
 
+            // Move from coprocessor0
+            6'b010000: begin
+                if (~rs_third_bit) begin
+                    reg_write_d = 1'b1; mem_to_reg_d = C0;
+                end
+            end
+
+            // MUL (Multiply output in 32-bit)
+            6'b011100: begin
+                alu_control_d = 4'b1101; reg_dst_d = 1; reg_write_d = 1'b1;
+            end
+
             // Load byte
             6'b100000: begin
                 reg_write_d = 1'b1; alu_src_d = 1'b1; alu_control_d = 4'b0110; mem_to_reg_d = MEM_OUT; mem_data_size_d = 2'b00;
@@ -245,7 +254,7 @@ always@(*) begin
             default: begin
                 reg_dst_d = 1'b0; unsigned_instr_d = 1'b0; reg_write_d = 1'b0; mem_to_reg_d = ALU_OUT; mem_data_size_d = 2'b10; link_d = 1'b0;
                 mem_write_d = 1'b0; branch_d = NO_BRANCH; jump_d = NO_JUMP; alu_control_d = 4'b1111; alu_src_d = 1'b0; sign_extend_d = 2'b00;
-                mult_en_d = 1'b0; div_en_d = 1'b0; hi_write_d = 1'b0; lo_write_d = 1'b0; hi_src_d = NO_MULT_DIV; lo_src_d = NO_MULT_DIV;
+                mult_en_d = 1'b0; div_en_d = 1'b0; hi_write_d = 1'b0; lo_write_d = 1'b0; hi_src_d = NO_MULT_DIV; lo_src_d = NO_MULT_DIV; undefined_instr_d = 1'b1;
             end
         endcase
     end

@@ -1,6 +1,6 @@
 // verilog_lint: waive-start line-length
 
-module Mult_Unit (
+module MULT_Unit (
     input wire [31:0] op1,
     input wire [31:0] op2,
     input wire mult_en,
