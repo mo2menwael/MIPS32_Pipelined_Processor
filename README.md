@@ -5,8 +5,8 @@
 This project implements a **MIPS32 pipelined processor** in Verilog HDL, supporting a rich subset of **50+ MIPS Instructions**. It features a five-stage pipeline, an exception handling unit, and a 2-bit branch prediction mechanism to improve control hazard performance. The design is fully simulation-ready, complete with testbenches, waveform setups, and automation scripts.
 
 ## Architecture
-![Phase1_MIPS_Single_Cycle drawio](https://github.com/user-attachments/assets/2e890b2d-36f9-423f-9ee6-2c07b496f2ff)
 
+// To be added
 
 > For a clearer and scalable view of the architecture, open the `.drawio` block diagram file found in the main directory using [draw.io](https://www.drawio.com/). This allows full zoom and editing capabilities.
 
