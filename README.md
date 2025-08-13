@@ -54,7 +54,9 @@ You will need a Verilog/VHDL simulator to run and test the processor. Some popul
 
 ## Acknowledgement
 
-This project was built with guidance and architecture principles from:
+I would like to express my sincere gratitude to **Eng. Abdulkareem Abotaleb** for his invaluable guidance, as this project was developed as a practical application of the concepts taught in his Computer Architecture course.
+
+This project also builds upon the foundational concepts and architectural principles presented in:
 
 > **David Harris & Sarah Harris** —  
 > _Digital Design and Computer Architecture, 2nd Edition_  
