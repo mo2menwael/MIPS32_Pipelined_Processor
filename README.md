@@ -6,7 +6,8 @@ This project implements a **MIPS32 pipelined processor** in Verilog HDL, support
 
 ## Architecture
 
-![MIPS32 Pipelined Processor - MIPS](https://github.com/user-attachments/assets/1966c339-f89e-4880-bd67-8227b63f9237)
+![MIPS32 Pipelined Processor - MIPS](https://github.com/user-attachments/assets/99f4b3bd-40e8-4884-beff-6c4c45a96ff7)
+
 
 
 > For a clearer and scalable view of the architecture, open the block diagram SVG files on your PC (You can find it in Block Diagrams folder). This allows full zoom and editing capabilities.
