@@ -9,7 +9,7 @@ This project implements a **MIPS32 pipelined processor** in Verilog HDL, support
 ![MIPS32 Pipelined Processor - MIPS](https://github.com/user-attachments/assets/1966c339-f89e-4880-bd67-8227b63f9237)
 
 
-> For a clearer and scalable view of the architecture, open this link: https://lucid.app/lucidchart/d9a3c795-9e32-49ca-957f-00b28324f20b/edit?viewport_loc=-1041%2C-91%2C2690%2C1087%2CAubppH1zprEfO&invitationId=inv_e5df3e49-fd02-4514-9755-55b31ba5c45d. This allows full zoom and editing capabilities.
+> For a clearer and scalable view of the architecture, open this link: https://lucid.app/lucidchart/d9a3c795-9e32-49ca-957f-00b28324f20b/edit?viewport_loc=-1041%2C-91%2C2690%2C1087%2CAubppH1zprEfO&invitationId=inv_e5df3e49-fd02-4514-9755-55b31ba5c45d, or open the SVG file in your PC. This allows full zoom and editing capabilities.
 
 ## Features
 
